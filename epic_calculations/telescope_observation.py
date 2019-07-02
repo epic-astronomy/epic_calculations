@@ -26,7 +26,7 @@ class TelescopeObservation():
         Dant : float
             Diameter of the antennas in meters.
         grid_size : float
-            Size of grid elements in wavelengths.
+            Size of grid elements in wavelengths. If None (default), use Dant * f0 / speed_of_light.
         f0 : float or int
             Center frequency in MHz.
         bandwidth : float
@@ -43,7 +43,7 @@ class TelescopeObservation():
         self.layout = layout
         if self.layout is not None:
             # center the array about zero
-            self.layout -= np.mean(self.layout, axis=0).reshape(1, 2)
+            self.layout -= np.mean(self.layout, axis=0).reshape(1, -1)
             # find diameter of array
             rs = np.sqrt(np.sum(np.abs(self.layout)**2, axis=1))
             max_u = 2 * np.max(rs)
@@ -65,6 +65,8 @@ class TelescopeObservation():
             self.Darray = Darray
 
         self.Dant = Dant
+        if grid_size is None:
+            grid_size = self.Dant * const.speed_of_light / (f0 * 1e6)
         self.grid_size = grid_size
         self.f0 = f0
         self.bandwidth = bandwidth
@@ -84,9 +86,9 @@ class TelescopeObservation():
                       * complex_factor / bits_per_byte)  # MBps
         self.lambda0 = const.speed_of_light / (self.f0 * 1e-6)
         self.channels = np.linspace(self.f0 - self.bandwidth / 2,
-                                    self.f0 + self.bandwidth / 2, num=Nchan)  # MHz
+                                    self.f0 + self.bandwidth / 2, num=self.Nchan)  # MHz
         self.lambdas = const.speed_of_light / (self.channels * 1e6)
-        self.cadence = 1. / (bandwidth / Nchan * 1e6)  # Time per FFT in seconds
+        self.cadence = 1. / (self.bandwidth / self.Nchan * 1e6)  # Time per FFT in seconds
 
     def vanilla_EPIC_stats(self, padding=2, verbose=True):
         """ Calculate the computation requirement for Vanilla EPIC.
