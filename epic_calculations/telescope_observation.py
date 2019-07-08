@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # Userful constants to make equations less mysterious
 complex_factor = 2.
 bits_per_byte = 8.
-fft_factor = 5. # Constant in front of NlogN scaling
+fft_factor = 5. / 2. # Constant in front of NlogN scaling
 
 
 class TelescopeObservation():
@@ -15,7 +15,7 @@ class TelescopeObservation():
     """
 
     def __init__(self, layout=None, Nant=None, Darray=None, Dant=None, grid_size=None, f0=None,
-                 bandwidth=None, Nchan=None, Nantpol=2, integration=None, in_bit_depth=4, out_bit_depth=32):
+                 bandwidth=None, df=None, Nantpol=2, integration=None, in_bit_depth=4, out_bit_depth=32):
         """ Initialize the class
 
         Parameters
@@ -38,8 +38,8 @@ class TelescopeObservation():
             Center frequency in MHz.
         bandwidth : float
             Bandwidth in MHz
-        Nchan : int
-            Number of frequency channels.
+        df : float
+            Channel width in MHz.
         Nantpol : int, optional
             Number : Number of antenna polarizations. Default is 2.
         integration : float
@@ -76,10 +76,10 @@ class TelescopeObservation():
         self.Dant = Dant
         self.bandwidth = bandwidth
         if grid_size is None:
-            grid_size = self.Dant * 1e6 * (f0 - self.bandwidth /  2.) / const.speed_of_light
+            grid_size = self.Dant * 1e6 * (f0) / const.speed_of_light
         self.grid_size = grid_size
         self.f0 = f0
-        self.Nchan = Nchan
+        self.df = df
         self.Nantpol = Nantpol
         self.integration = integration
         self.in_bit_depth = in_bit_depth
@@ -92,6 +92,7 @@ class TelescopeObservation():
 
         self.in_bw = (self.Nant * self.bandwidth * self.in_bit_depth
                       * complex_factor / bits_per_byte)  # MBps
+        self.Nchan = int(self.bandwidth / self.df)
         self.lambda0 = const.speed_of_light / (self.f0 * 1e6)
         self.channels = np.linspace(self.f0 - self.bandwidth / 2,
                                     self.f0 + self.bandwidth / 2, num=self.Nchan)  # MHz
@@ -111,7 +112,7 @@ class TelescopeObservation():
         total_flops : float
             Number of floating point operations per second required to process the data.
         """
-        total_flops = self.Nantpol * fft_factor * self.Nchan * np.log2(self.Nchan) / self.cadence
+        total_flops = self.Nantpol * self.Nant * fft_factor * self.Nchan * np.log2(self.Nchan) / self.cadence
         return total_flops
 
     def vanilla_EPIC_stats(self, padding=2, verbose=False):
