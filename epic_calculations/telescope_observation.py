@@ -157,8 +157,8 @@ class TelescopeObservation():
             Number of floating point operations per second required to process the data.
         """
 
-        nbls = self.Nantpol**2 * self.Nant * (self.Nant - 1.) / 2.
-        corr_flops_per_channel = nbls / self.cadence
+        nbls = self.Nant * (self.Nant - 1.) / 2.
+        corr_flops_per_channel = self.Nantpol**2 * nbls / self.cadence
 
         max_u = self.Darray * (self.f0 + self.bandwidth / 2.) * 1e6 / const.speed_of_light
         npix = 2 * padding * 2 ** (np.ceil(np.log2(max_u / self.grid_size)))  # pixels per side
