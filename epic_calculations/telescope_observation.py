@@ -3,13 +3,19 @@ import scipy.constants as const
 import matplotlib.pyplot as plt
 
 
+# Userful constants to make equations less mysterious
+complex_factor = 2.
+bits_per_byte = 8.
+fft_factor = 5. # Constant in front of NlogN scaling
+
+
 class TelescopeObservation():
     """ A class which defines a telescope and observations parameters
     (e.g. frequency, bandwidth, integration, etc)
     """
 
     def __init__(self, layout=None, Nant=None, Darray=None, Dant=None, grid_size=None, f0=None,
-                 bandwidth=None, Nchan=None, integration=None, in_bit_depth=4, out_bit_depth=32):
+                 bandwidth=None, Nchan=None, Nantpol=2, integration=None, in_bit_depth=4, out_bit_depth=32):
         """ Initialize the class
 
         Parameters
@@ -26,13 +32,16 @@ class TelescopeObservation():
         Dant : float
             Diameter of the antennas in meters.
         grid_size : float
-            Size of grid elements in wavelengths. If None (default), use Dant * f0 / speed_of_light.
+            Size of grid elements in wavelengths. If None (default), use
+            Dant * (f0 - bandwidth /  2.) / speed_of_light.
         f0 : float or int
             Center frequency in MHz.
         bandwidth : float
             Bandwidth in MHz
         Nchan : int
             Number of frequency channels.
+        Nantpol : int, optional
+            Number : Number of antenna polarizations. Default is 2.
         integration : float
             Integration time for output data, in seconds.
         in_bit_depth : int
@@ -43,7 +52,7 @@ class TelescopeObservation():
         self.layout = layout
         if self.layout is not None:
             # center the array about zero
-            self.layout -= np.mean(self.layout, axis=0).reshape(1, -1)
+            self.layout -= np.median(self.layout, axis=0).reshape(1, -1)
             # find diameter of array
             rs = np.sqrt(np.sum(np.abs(self.layout)**2, axis=1))
             max_u = 2 * np.max(rs)
@@ -65,12 +74,13 @@ class TelescopeObservation():
             self.Darray = Darray
 
         self.Dant = Dant
+        self.bandwidth = bandwidth
         if grid_size is None:
-            grid_size = self.Dant * const.speed_of_light / (f0 * 1e6)
+            grid_size = self.Dant * 1e6 * (f0 - self.bandwidth /  2.) / const.speed_of_light
         self.grid_size = grid_size
         self.f0 = f0
-        self.bandwidth = bandwidth
         self.Nchan = Nchan
+        self.Nantpol = Nantpol
         self.integration = integration
         self.in_bit_depth = in_bit_depth
         self.out_bit_depth = out_bit_depth
@@ -79,16 +89,14 @@ class TelescopeObservation():
 
     def _set_dependents(self):
         # Some calculated values that are useful
-        complex_factor = 2.
-        bits_per_byte = 8.
 
         self.in_bw = (self.Nant * self.bandwidth * self.in_bit_depth
                       * complex_factor / bits_per_byte)  # MBps
-        self.lambda0 = const.speed_of_light / (self.f0 * 1e-6)
+        self.lambda0 = const.speed_of_light / (self.f0 * 1e6)
         self.channels = np.linspace(self.f0 - self.bandwidth / 2,
                                     self.f0 + self.bandwidth / 2, num=self.Nchan)  # MHz
         self.lambdas = const.speed_of_light / (self.channels * 1e6)
-        self.cadence = 1. / (self.bandwidth / self.Nchan * 1e6)  # Time per FFT in seconds
+        self.cadence = 1. / (self.bandwidth * 1e6 / self.Nchan)  # Time per FFT in seconds
 
     def vanilla_EPIC_stats(self, padding=2, verbose=True):
         """ Calculate the computation requirement for Vanilla EPIC.
@@ -97,7 +105,7 @@ class TelescopeObservation():
         ----------
         padding : float or int, optional
             Factor to pad grid. Default is 2, which will make the same size
-            grid as no padding FX.
+            grid as no padding FX, ie the grid size will be 2x the size of the array.
         verbose : bool
             Option to print more stats than just what is returned.
 
@@ -109,15 +117,16 @@ class TelescopeObservation():
         max_u = self.Darray * (self.f0 + self.bandwidth / 2.) * 1e6 / const.speed_of_light
         npix = padding * 2 ** (np.ceil(np.log2(max_u / self.grid_size)))  # pixels per side
 
-        gridding_flops_per_chan = self.Nant * (self.Dant / self.lambdas / self.grid_size)**2 / self.cadence
+        gridding_flops_per_chan = (self.Nantpol * self.Nant
+                                   * (self.Dant / self.lambdas / self.grid_size)**2 / self.cadence)
+        fft_flops_per_chan = self.Nantpol * fft_factor * npix * np.log2(npix) / self.cadence
+        squaring_per_chan = self.Nantpol**2 * npix / self.cadence
 
-        fft_flops_per_chan = 5 * npix * np.log2(npix) / self.cadence
-
-        # TODO: add squaring, averaging
         # TODO: output bandwidth
         # TODO: report FoV and resolution
 
-        total_flops = np.sum(gridding_flops_per_chan) + fft_flops_per_chan * self.Nchan
+        total_flops = self.Nchan * (gridding_flops_per_chan.mean()
+                                    + fft_flops_per_chan + squaring_per_chan)
 
         if verbose:
             print('Input bandwidth = ' + str(self.in_bw) + ' MBps')
@@ -137,7 +146,8 @@ class TelescopeObservation():
         Parameters
         ----------
         padding : float or int, optional
-            Factor to pad grid. Default is 1 (no padding).
+            Factor to pad grid. Default is 1 (no padding), ie the grid size
+            will be 2x the size of the array..
         verbose : bool
             Option to print more stats than just what is returned.
 
@@ -147,16 +157,18 @@ class TelescopeObservation():
             Number of floating point operations per second required to process the data.
         """
 
-        nbls = self.Nant * (self.Nant - 1.) / 2.
+        nbls = self.Nantpol**2 * self.Nant * (self.Nant - 1.) / 2.
         corr_flops_per_channel = nbls / self.cadence
 
         max_u = self.Darray * (self.f0 + self.bandwidth / 2.) * 1e6 / const.speed_of_light
         npix = 2 * padding * 2 ** (np.ceil(np.log2(max_u / self.grid_size)))  # pixels per side
 
-        gridding_flops_per_chan = self.Nant * (2 * self.Dant / self.lambdas / self.grid_size)**2 / self.integration
-        fft_flops_per_chan = 5 * npix * np.log2(npix) / self.integration
+        gridding_flops_per_chan = (self.Nantpol**2 * nbls * (2 * self.Dant / self.lambdas / self.grid_size)**2
+                                   / self.integration)
+        fft_flops_per_chan = self.Nantpol**2 * fft_factor * npix * np.log2(npix) / self.integration
 
-        total_flops = self.Nchan * (corr_flops_per_channel + gridding_flops_per_chan.mean() + fft_flops_per_chan)
+        total_flops = self.Nchan * (corr_flops_per_channel + gridding_flops_per_chan.mean()
+                                    + fft_flops_per_chan)
 
         if verbose:
             print('Input bandwidth = ' + str(self.in_bw) + ' MBps')
