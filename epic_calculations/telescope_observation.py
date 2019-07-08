@@ -97,8 +97,24 @@ class TelescopeObservation():
                                     self.f0 + self.bandwidth / 2, num=self.Nchan)  # MHz
         self.lambdas = const.speed_of_light / (self.channels * 1e6)
         self.cadence = 1. / (self.bandwidth * 1e6 / self.Nchan)  # Time per FFT in seconds
+        
+    def F_stats(self, verbose=False):
+        """ Calculate computation requirement for F-engine.
+        
+        Parameters
+        ----------
+        verbose : bool, optional
+            Option to print more stats than just what is returned. Default is False.
+        
+        Returns
+        -------
+        total_flops : float
+            Number of floating point operations per second required to process the data.
+        """
+        total_flops = self.Nantpol * fft_factor * self.Nchan * np.log2(self.Nchan) / self.cadence
+        return total_flops
 
-    def vanilla_EPIC_stats(self, padding=2, verbose=True):
+    def vanilla_EPIC_stats(self, padding=2, verbose=False):
         """ Calculate the computation requirement for Vanilla EPIC.
 
         Parameters
@@ -117,6 +133,7 @@ class TelescopeObservation():
         max_u = self.Darray * (self.f0 + self.bandwidth / 2.) * 1e6 / const.speed_of_light
         npix = padding * 2 ** (np.ceil(np.log2(max_u / self.grid_size)))  # pixels per side
 
+        f_flops = self.F_stats(verbose=verbose)
         gridding_flops_per_chan = (self.Nantpol * self.Nant
                                    * (self.Dant / self.lambdas / self.grid_size)**2 / self.cadence)
         fft_flops_per_chan = self.Nantpol * fft_factor * npix * np.log2(npix) / self.cadence
@@ -125,8 +142,8 @@ class TelescopeObservation():
         # TODO: output bandwidth
         # TODO: report FoV and resolution
 
-        total_flops = self.Nchan * (gridding_flops_per_chan.mean()
-                                    + fft_flops_per_chan + squaring_per_chan)
+        total_flops = f_flops + self.Nchan * (gridding_flops_per_chan.mean()
+                                              + fft_flops_per_chan + squaring_per_chan)
 
         if verbose:
             print('Input bandwidth = ' + str(self.in_bw) + ' MBps')
@@ -140,7 +157,7 @@ class TelescopeObservation():
 
         return total_flops
 
-    def FX_stats(self, padding=1, verbose=True):
+    def FX_stats(self, padding=1, verbose=False):
         """ Calculate the computation requirement for FX correlator + image.
 
         Parameters
@@ -156,6 +173,7 @@ class TelescopeObservation():
         total_flops : float
             Number of floating point operations per second required to process the data.
         """
+        f_flops = self.F_stats(verbose=verbose)
 
         nbls = self.Nant * (self.Nant - 1.) / 2.
         corr_flops_per_channel = self.Nantpol**2 * nbls / self.cadence
@@ -167,8 +185,8 @@ class TelescopeObservation():
                                    / self.integration)
         fft_flops_per_chan = self.Nantpol**2 * fft_factor * npix * np.log2(npix) / self.integration
 
-        total_flops = self.Nchan * (corr_flops_per_channel + gridding_flops_per_chan.mean()
-                                    + fft_flops_per_chan)
+        total_flops = f_flops + self.Nchan * (corr_flops_per_channel + gridding_flops_per_chan.mean()
+                                              + fft_flops_per_chan)
 
         if verbose:
             print('Input bandwidth = ' + str(self.in_bw) + ' MBps')
