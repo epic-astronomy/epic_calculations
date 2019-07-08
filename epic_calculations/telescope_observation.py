@@ -132,7 +132,8 @@ class TelescopeObservation():
         """
         max_u = self.Darray * (self.f0 + self.bandwidth / 2.) * 1e6 / const.speed_of_light
         npix = padding * 2 ** (np.ceil(np.log2(max_u / self.grid_size)))  # pixels per side
-
+        npix = npix**2
+        
         f_flops = self.F_stats(verbose=verbose)
         gridding_flops_per_chan = (self.Nantpol * self.Nant
                                    * (self.Dant / self.lambdas / self.grid_size)**2 / self.cadence)
@@ -153,6 +154,7 @@ class TelescopeObservation():
             print('Total gridding GFLOPS = ' + str(np.sum(gridding_flops_per_chan * 1e-9)))
             print('FFT GFLOPS per channel = ' + str(fft_flops_per_chan * 1e-9))
             print('Total FFT GFLOPS = ' + str(fft_flops_per_chan * self.Nchan * 1e-9))
+            print('Total squaring GFLOPS = ' + str(squaring_per_chan * self.Nchan * 1e-9))
             print('All the GFLOPS = ' + str(1e-9 * total_flops))
 
         return total_flops
@@ -180,6 +182,7 @@ class TelescopeObservation():
 
         max_u = self.Darray * (self.f0 + self.bandwidth / 2.) * 1e6 / const.speed_of_light
         npix = 2 * padding * 2 ** (np.ceil(np.log2(max_u / self.grid_size)))  # pixels per side
+        npix = npix**2
 
         gridding_flops_per_chan = (self.Nantpol**2 * nbls * (2 * self.Dant / self.lambdas / self.grid_size)**2
                                    / self.integration)
