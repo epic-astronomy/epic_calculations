@@ -15,7 +15,8 @@ class TelescopeObservation():
     """
 
     def __init__(self, layout=None, Nant=None, Darray=None, Dant=None, grid_size=None, f0=None,
-                 bandwidth=None, df=None, Nantpol=2, integration=None, in_bit_depth=4, out_bit_depth=32):
+                 bandwidth=None, df=None, Nantpol=2, integration=None, in_bit_depth=4, out_bit_depth=32,
+                 force_2n_img=False):
         """ Initialize the class
 
         Parameters
@@ -48,6 +49,8 @@ class TelescopeObservation():
             Number of bits per sample of input. Default is 4 (x2 for complex).
         out_bit_depth : int
             Number of bits per sample output. Default is 32.
+        force_2n_img : bool, optional
+            Whether to force the size of the image to be a power of two. Default is False.
         """
         self.layout = layout
         if self.layout is not None:
@@ -84,6 +87,7 @@ class TelescopeObservation():
         self.integration = integration
         self.in_bit_depth = in_bit_depth
         self.out_bit_depth = out_bit_depth
+        self.force_2n_img = force_2n_img
 
         self._set_dependents()
 
@@ -114,6 +118,13 @@ class TelescopeObservation():
         """
         total_flops = self.Nantpol * self.Nant * fft_factor * self.Nchan * np.log2(self.Nchan) / self.cadence
         return total_flops
+    
+    def _get_npix(self, max_u, padding):
+        if self.force_2n_img:
+            npix = padding * 2**(np.ceil(np.log2(max_u / self.grid_size)))
+        else:
+            npix = int(padding * max_u / self.grid_size)
+        return npix**2
 
     def vanilla_EPIC_stats(self, padding=2, verbose=False):
         """ Calculate the computation requirement for Vanilla EPIC.
@@ -132,8 +143,7 @@ class TelescopeObservation():
             Number of floating point operations per second required to process the data.
         """
         max_u = self.Darray * (self.f0 + self.bandwidth / 2.) * 1e6 / const.speed_of_light
-        npix = padding * 2 ** (np.ceil(np.log2(max_u / self.grid_size)))  # pixels per side
-        npix = npix**2
+        npix = self._get_npix(max_u, padding)
         
         f_flops = self.F_stats(verbose=verbose)
         gridding_flops_per_chan = (self.Nantpol * self.Nant
@@ -146,6 +156,10 @@ class TelescopeObservation():
 
         total_flops = f_flops + self.Nchan * (gridding_flops_per_chan.mean()
                                               + fft_flops_per_chan + squaring_per_chan)
+        
+        # Output bandwidth
+        image_size = npix * self.Nchan * self.out_bit_depth * self.Nantpol**2  # bits
+        self.img_out_bw = image_size / self.integration / bits_per_byte  # Bytes / second
 
         if verbose:
             print('Input bandwidth = ' + str(self.in_bw) + ' MBps')
@@ -157,6 +171,7 @@ class TelescopeObservation():
             print('Total FFT GFLOPS = ' + str(fft_flops_per_chan * self.Nchan * 1e-9))
             print('Total squaring GFLOPS = ' + str(squaring_per_chan * self.Nchan * 1e-9))
             print('All the GFLOPS = ' + str(1e-9 * total_flops))
+            print('Output BW (GBps) = ' + str(1e-9 * self.img_out_bw))
 
         return total_flops
 
@@ -181,9 +196,8 @@ class TelescopeObservation():
         nbls = self.Nant * (self.Nant - 1.) / 2.
         corr_flops_per_channel = self.Nantpol**2 * nbls / self.cadence
 
-        max_u = self.Darray * (self.f0 + self.bandwidth / 2.) * 1e6 / const.speed_of_light
-        npix = 2 * padding * 2 ** (np.ceil(np.log2(max_u / self.grid_size)))  # pixels per side
-        npix = npix**2
+        max_u = 2 * self.Darray * (self.f0 + self.bandwidth / 2.) * 1e6 / const.speed_of_light
+        npix = self._get_npix(max_u, padding)
 
         gridding_flops_per_chan = (self.Nantpol**2 * nbls * (2 * self.Dant / self.lambdas / self.grid_size)**2
                                    / self.integration)
@@ -191,6 +205,10 @@ class TelescopeObservation():
 
         total_flops = f_flops + self.Nchan * (corr_flops_per_channel + gridding_flops_per_chan.mean()
                                               + fft_flops_per_chan)
+        
+        # Output bandwidth
+        self.vis_out_bw = (complex_factor * nbls * self.Nchan * self.Nantpol**2 * self.out_bit_depth
+                           / (bits_per_byte * self.integration))
 
         if verbose:
             print('Input bandwidth = ' + str(self.in_bw) + ' MBps')
@@ -202,6 +220,7 @@ class TelescopeObservation():
             print('FFT GFLOPS per channel = ' + str(fft_flops_per_chan * 1e-9))
             print('Total FFT GFLOPS = ' + str(fft_flops_per_chan * self.Nchan * 1e-9))
             print('All the GFLOPS = ' + str(1e-9 * total_flops))
+            print('Output BW (GBps) = ' + str(1e-9 * self.vis_out_bw))
 
         return total_flops
 
