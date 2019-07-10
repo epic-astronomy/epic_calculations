@@ -79,7 +79,7 @@ class TelescopeObservation():
         self.Dant = Dant
         self.bandwidth = bandwidth
         if grid_size is None:
-            grid_size = self.Dant * 1e6 * (f0) / const.speed_of_light
+            grid_size = np.max([self.Dant * 1e6 * (f0) / const.speed_of_light, .5])
         self.grid_size = grid_size
         self.f0 = f0
         self.df = df
