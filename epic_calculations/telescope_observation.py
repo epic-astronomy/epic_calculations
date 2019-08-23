@@ -3,10 +3,10 @@ import scipy.constants as const
 import matplotlib.pyplot as plt
 
 
-# Userful constants to make equations less mysterious
+# Useful constants to make equations less mysterious
 complex_factor = 2.
 bits_per_byte = 8.
-fft_factor = 5. / 2. # Constant in front of NlogN scaling
+fft_factor = 5. / 2.  # Constant in front of NlogN scaling
 
 
 class TelescopeObservation():
@@ -102,15 +102,15 @@ class TelescopeObservation():
                                     self.f0 + self.bandwidth / 2, num=self.Nchan)  # MHz
         self.lambdas = const.speed_of_light / (self.channels * 1e6)
         self.cadence = 1. / (self.bandwidth * 1e6 / self.Nchan)  # Time per FFT in seconds
-        
+
     def F_stats(self, verbose=False):
         """ Calculate computation requirement for F-engine.
-        
+
         Parameters
         ----------
         verbose : bool, optional
             Option to print more stats than just what is returned. Default is False.
-        
+
         Returns
         -------
         total_flops : float
@@ -118,7 +118,7 @@ class TelescopeObservation():
         """
         total_flops = self.Nantpol * self.Nant * fft_factor * self.Nchan * np.log2(self.Nchan) / self.cadence
         return total_flops
-    
+
     def _get_npix(self, max_u, padding):
         if self.force_2n_img:
             npix = padding * 2**(np.ceil(np.log2(max_u / self.grid_size)))
@@ -144,7 +144,7 @@ class TelescopeObservation():
         """
         max_u = self.Darray * (self.f0 + self.bandwidth / 2.) * 1e6 / const.speed_of_light
         npix = self._get_npix(max_u, padding)
-        
+
         f_flops = self.F_stats(verbose=verbose)
         gridding_flops_per_chan = (self.Nantpol * self.Nant
                                    * (self.Dant / self.lambdas / self.grid_size)**2 / self.cadence)
@@ -156,7 +156,7 @@ class TelescopeObservation():
 
         total_flops = f_flops + self.Nchan * (gridding_flops_per_chan.mean()
                                               + fft_flops_per_chan + squaring_per_chan)
-        
+
         # Output bandwidth
         image_size = npix * self.Nchan * self.out_bit_depth * self.Nantpol**2  # bits
         self.img_out_bw = image_size / self.integration / bits_per_byte  # Bytes / second
@@ -205,7 +205,7 @@ class TelescopeObservation():
 
         total_flops = f_flops + self.Nchan * (corr_flops_per_channel + gridding_flops_per_chan.mean()
                                               + fft_flops_per_chan)
-        
+
         # Output bandwidth
         self.vis_out_bw = (complex_factor * nbls * self.Nchan * self.Nantpol**2 * self.out_bit_depth
                            / (bits_per_byte * self.integration))
