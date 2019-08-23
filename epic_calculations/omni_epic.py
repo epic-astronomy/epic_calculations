@@ -202,7 +202,7 @@ class array1D():
         """
         if amin is None:
             amin = self.bl_min
-        Pmax_brute = int(np.ceil((self.bl_max - self.bl_min) / amin))
+        Pmax_brute = int(np.ceil(self.bl_max / amin))
         brute_cost = omniscope_cost([Pmax_brute], pad=True)
         # This comes from argument about the padding penalty (see notebook)
         Nv_max = int(np.floor(np.log2(Pmax_brute + 1) / 2.))
