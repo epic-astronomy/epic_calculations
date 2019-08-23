@@ -356,3 +356,76 @@ class HierarchicalGrid_1D():
             if not contained:
                 score += np.min(np.abs(self.grid - loc))
         return score
+
+
+def _rand2physical(params, omax, amin, amax):
+    """Quick function to translate random numbers to physical parameters.
+
+    Parameters
+    ----------
+    params : array of floats
+        Numbers in range [0, 1) representing the origin and basis vectors
+    omax : float
+        Maximum origin value
+    amin : float
+        Minimum basis vector length. This will be the first element.
+    amax : float
+        Maximum allowed basis vector length.
+
+    Returns
+    -------
+    origin : float
+        Origin now in physical parameter space.
+    basis_vecs : array_like of floats
+        Basis vectors now in physical parameter space.
+
+    """
+    basis_vecs = np.zeros(params.size - 1)
+    basis_vecs[0] = amin
+    for i in range(len(basis_vecs[1:])):
+        amax_temp = amax / 2**(len(basis_vecs) - i - 2)
+        basis_vecs[i + 1] = 2 * basis_vecs[i] + params[i + 2] * (amax_temp - 2 * basis_vecs[i])
+    origin = omax - params[0] * basis_vecs[-1]
+
+    return origin, basis_vecs
+
+
+def func_to_min(params, array, Pmaxes, amin=None, mindist=None, radius=0):
+    """Given list of Pmaxes and an array, try a bunch of origins and a's.
+
+    Parameters
+    ----------
+    params : array of floats
+        These are the parameters to be searched. This function is defined such that
+        these parameters can range [0, 1], which is specified in the call to
+        scipy.optimize.minimize.
+    array : array1D
+        Object containing the array to grid.
+    Pmaxes : list of ints
+        The largest vector coefficient for basis vectors.
+        Assumed to be in order from smallest basis vector to largest.
+    amin : float, optional
+        Minimum grid spacing. Defaults to minimum baseline.
+    mindist : float, optional
+        Minimum distance from a grid point to be consider contained.
+        Defaults to length of shortest basis vector / 2.
+    radius : float, optional
+        Radius of antennas to check containment. Default is 0 (only check specific location).
+
+    Returns
+    -------
+    score : float
+        The score associated with the grid specified by params and Pmaxes against
+        the array.
+
+    """
+    if amin is None:
+        amin = array.bl_min
+    amax = array.bl_max / Pmaxes[-1]  # TODO: make smarter
+    omax = np.min(array.ant_locs) - radius
+
+    origin, basis_vecs = _rand2physical(params, omax, amin, amax)
+    this_grid = HierarchicalGrid_1D(basis_vecs, Pmaxes, origin=origin)
+    score = this_grid.grid_vs_array_score(array, mindist=mindist, radius=radius)
+
+    return score
