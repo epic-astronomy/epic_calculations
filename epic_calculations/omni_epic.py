@@ -169,7 +169,7 @@ class array1D():
         else:
             return psf
 
-    def _recursive_Pmax(Pmaxes, costs, currPmaxes, Pmax_brute, Nv, brute_cost):
+    def _recursive_Pmax(self, Pmaxes, costs, currPmaxes, Pmax_brute, Nv, brute_cost):
         for i in range(1, int(np.ceil(Pmax_brute / (2**(Nv - 1)))) + 1):
             if len(currPmaxes) + 1 == Nv:
                 cost = omniscope_cost(np.array(currPmaxes + [i]) + 1, pad=True)
