@@ -179,7 +179,8 @@ class array1D():
                 else:
                     break
             else:
-                _recursive_Pmax(Pmaxes, costs, currPmaxes + [i], Pmax_brute, Nv, brute_cost)
+                self._recursive_Pmax(Pmaxes, costs, currPmaxes + [i],
+                                     Pmax_brute, Nv, brute_cost)
 
     def get_candidate_pmaxes(self, amin=None, reorder=False):
         """Get potential Pmax's which are better than brute force.
