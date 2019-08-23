@@ -380,7 +380,7 @@ def _rand2physical(params, omax, amin, amax):
         Basis vectors now in physical parameter space.
 
     """
-    basis_vecs = np.zeros(params.size - 1)
+    basis_vecs = np.zeros(len(params) - 1)
     basis_vecs[0] = amin
     for i in range(len(basis_vecs[1:])):
         amax_temp = amax / 2**(len(basis_vecs) - i - 2)
