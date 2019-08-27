@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.constants as const
+from scipy.optimize import minimize
 
 
 def omniscope_cost(njs, pad=True, corr_cost=False):
