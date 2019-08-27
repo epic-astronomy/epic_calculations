@@ -506,7 +506,7 @@ def find_grid(array, amin=None, mindist=None, radius=0, verbose=False):
     for i, Pmax_curr in enumerate(Pmaxes):
         if verbose:
             print('Trying: ' + str(Pmax_curr))
-        res = minimize(omni_epic.func_to_min, [0., 0., 0.],
+        res = minimize(func_to_min, [0., 0., 0.],
                        args=(array, Pmax_curr, amin, mindist, radius))
         if res.fun == 0.:
             # We did it!
