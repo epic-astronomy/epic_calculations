@@ -436,7 +436,8 @@ def func_to_min(params, array, Pmaxes, amin=None, mindist=None, radius=0):
 class OptimalGrid():
     """Class for the optimal grid for a given array."""
 
-    def __init__(self, array, Pmaxes, res, amin, mindist, radius):
+    def __init__(self, array, Pmaxes, res, amin, mindist, radius, brute_force_cost,
+                 optimal_cost):
         """Initialize the class.
 
         Parameters
@@ -455,6 +456,10 @@ class OptimalGrid():
             Minimum distance from a grid point used to determine containment.
         radius : float
             Radius of antennas used to check containment. Default is 0.
+        brute_force_cost : float
+            Cost for brute force method.
+        optimal_cost : float
+            Cost for the optimal grid.
 
         """
         self.array = array
@@ -464,6 +469,8 @@ class OptimalGrid():
         omax = np.min(array.ant_locs) - radius
         origin, basis_vecs = _rand2physical(res.x, omax, amin, amax)
         self.grid = HierarchicalGrid_1D(basis_vecs, Pmaxes, origin=origin)
+        self.brute_force_cost = brute_force_cost
+        self.optimal_cost = optimal_cost
 
 
 def find_grid(array, amin=None, mindist=None, radius=0, verbose=False):
@@ -510,7 +517,8 @@ def find_grid(array, amin=None, mindist=None, radius=0, verbose=False):
                        args=(array, Pmax_curr, amin, mindist, radius))
         if res.fun == 0.:
             # We did it!
-            ogrid = OptimalGrid(array, Pmax_curr, res, amin, mindist, radius)
+            ogrid = OptimalGrid(array, Pmax_curr, res, amin, mindist, radius,
+                                costs[-1], costs[i])
             return ogrid
 
     return False
