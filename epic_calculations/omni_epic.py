@@ -430,3 +430,86 @@ def func_to_min(params, array, Pmaxes, amin=None, mindist=None, radius=0):
     score = this_grid.grid_vs_array_score(array, mindist=mindist, radius=radius)
 
     return score
+
+
+class OptimalGrid():
+    """Class for the optimal grid for a given array."""
+
+    def __init__(self, array, Pmaxes, res, amin, mindist, radius):
+        """Initialize the class.
+
+        Parameters
+        ----------
+        array : array1D
+            Array object that this grid corresponds to.
+        Pmaxes : list of ints
+            The largest vector coefficient for basis vectors.
+            Assumed to be in order from smallest basis vector to largest.
+        res : OptimizeResult
+            The result of scipy.optimize.minimize for the lowest cost grid that
+            contains the entire array.
+        amin : float
+            Minimum grid spacing used in optimization.
+        mindist : float
+            Minimum distance from a grid point used to determine containment.
+        radius : float
+            Radius of antennas used to check containment. Default is 0.
+
+        """
+        self.array = array
+        self.res = res
+        self.mindist = mindist
+        amax = array.bl_max / Pmaxes[-1]
+        omax = np.min(array.ant_locs) - radius
+        origin, basis_vecs = _rand2physical(res.x, omax, amin, amax)
+        self.grid = HierarchicalGrid_1D(basis_vecs, Pmaxes, origin=origin)
+
+
+def find_grid(array, amin=None, mindist=None, radius=0, verbose=False):
+    """Fully explore possible grids for an array.
+
+    Parameters
+    ----------
+    array : array1D
+        array1D object describing the array to grid.
+    amin : float, optional
+        Minimum grid spacing. Defaults to minimum baseline.
+    mindist : float, optional
+        Minimum distance from a grid point to be consider contained.
+        Defaults to length of shortest basis vector / 2.
+    radius : float, optional
+        Radius of antennas to check containment. Default is 0 (only check specific location).
+    verbose : bool, optional
+        Print extra information. Default is False.
+
+    Returns
+    -------
+    ogrid : OptimalGrid
+        Object containing the information for the optimal grid fit to the array.
+        If no grid was successful, returns False.
+    res : OptimizeResult
+        The result of scipy.optimize.minimize for the lowest cost grid that
+        contains the entire array. Added attributes for convenient interpretation
+        of result. If no grid was successful, returns False.
+
+    """
+    # Get Pmaxes
+    Pmaxes, costs = array.get_candidate_pmaxes(amin=amin, reorder=True)
+    if verbose:
+        print('Found ' + str(len(Pmaxes)) + ' candidate Pmax sets.')
+
+    if len(Pmaxes) == 1:
+        # No possible Pmaxes with improved cost. Break.
+        return False
+
+    for i, Pmax_curr in enumerate(Pmaxes):
+        if verbose:
+            print('Trying: ' + str(Pmax_curr))
+        res = minimize(omni_epic.func_to_min, [0., 0., 0.],
+                       args=(array, Pmax_curr, amin, mindist, radius))
+        if res.fun == 0.:
+            # We did it!
+            ogrid = OptimalGrid(array, Pmax_curr, res, amin, mindist, radius)
+            return ogrid
+
+    return False
