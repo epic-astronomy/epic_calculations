@@ -3,14 +3,14 @@ import scipy.constants as const
 from scipy.optimize import minimize
 
 
-def omniscope_cost(Pmaxes, pad=True, corr_cost=False):
+def omniscope_cost(njs, pad=True, corr_cost=False):
     """Calculate computational cost for omniscope given the sizes of grid levels.
 
     Parameters
     ----------
-    Pmaxes : list, array of ints
+    njs : list, array of ints
         The sizes of the hierarchical grid levels. For example, the example given in Fig. 1
-        of Tegmark 2010, Pmaxes=[5, 3, 3, 3, 3, 3]
+        of Tegmark 2010, njs=[5, 3, 3, 3, 3, 3]
     pad : bool, optional
         Whether to pad each grid level. Default is True.
     corr_cost : bool, optional
@@ -23,24 +23,23 @@ def omniscope_cost(Pmaxes, pad=True, corr_cost=False):
 
     """
     fft_factor = 5. / 2.
-    Pmaxes = np.array(Pmaxes)
-    nant = np.prod(Pmaxes)
+    njs = np.array(njs)
+    nant = np.prod(njs)
 
     if corr_cost:
-        nant = np.prod(Pmaxes)
         cost = nant * (nant - 1) / 2.
     else:
         if pad:
-            cost = fft_factor * 2**Pmaxes.size * nant * (Pmaxes.size + np.log2(nant))
+            cost = fft_factor * 2**njs.size * nant * (njs.size + np.log2(nant))
         else:
-            cost = fft_factor * nant * np.log2(Pmaxes)
+            cost = fft_factor * nant * np.log2(njs)
     return cost
 
 
 class HierarchicalGrid():
     """Class to contain a definition of a hierarchical grid."""
 
-    def __init__(self, basis_vectors, i_maxes, origin=[0., 0.]):
+    def __init__(self, basis_vectors, njs, origin=[0., 0.]):
         """Initialize the class.
 
         Parameters
@@ -48,9 +47,9 @@ class HierarchicalGrid():
         basis_vectors : list of lists/arrays
             List of basis vectors that define the hierarchical grid (a's in Tegmark 2010, eq 3).
             For example, Fig 1 of that paper would be [[1, 0], [8, 0], [40, 10], [0, 1], [2, 8], [-10, 40]]
-        i_maxes : list of ints
+        njs : list of ints
             The number of grid points associated with each basis vector (max i in Tegmark eq 3).
-            This class assumes i ranges from 0 to i_max - 1.
+            This class assumes i ranges from 0 to n_j - 1.
             For example, Fig 1 of that paper would be [5, 3, 3, 3, 3, 3]
         origin : list of floats, optional
             The origin from which to reference the basis vectors and i's above.
@@ -60,7 +59,7 @@ class HierarchicalGrid():
         # TODO: Check inputs
 
         self.basis_vectors = basis_vectors
-        self.i_maxes = i_maxes
+        self.njs = njs
         self.origin = np.array(origin)
         lengths = [np.linalg.norm(vec) for vec in basis_vectors]
         self.shortest_vec = np.min(lengths)
@@ -68,7 +67,7 @@ class HierarchicalGrid():
         self.calc_grid()
 
     def calc_grid(self):
-        """Calculate the grid pixels for the basis vectors, i_maxes, and origin."""
+        """Calculate the grid pixels for the basis vectors, njs, and origin."""
         self.grid = []
         lvl = 0
         self._recursive_grid_level(lvl, self.origin)
@@ -76,8 +75,8 @@ class HierarchicalGrid():
 
     def _recursive_grid_level(self, lvl, loc):
         """Recursively walk through grid levels to add points to self.grid."""
-        for i in range(self.i_maxes[lvl]):
-            new_loc = loc + i * np.array(self.basis_vectors[lvl])
+        for Pij in range(self.njs[lvl]):
+            new_loc = loc + Pij * np.array(self.basis_vectors[lvl])
             if lvl == len(self.basis_vectors) - 1:
                 self.grid.append(new_loc)
             else:
@@ -170,21 +169,20 @@ class array1D():
         else:
             return psf
 
-    def _recursive_Pmax(self, Pmaxes, costs, currPmaxes, Pmax_brute, Nv, brute_cost):
-        for i in range(1, int(np.ceil(Pmax_brute / (2**(Nv - 1)))) + 1):
-            if len(currPmaxes) + 1 == Nv:
-                cost = omniscope_cost(np.array(currPmaxes + [i]) + 1, pad=True)
-                if cost < brute_cost:
-                    Pmaxes.append(currPmaxes + [i])
-                    costs.append(cost)
-                else:
-                    break
+    def _recursive_nj(self, njs, costs, curr_njs, nj_brute, Nv, brute_cost):
+        for nj in range(2, int(np.ceil(nj_brute / (2**(Nv - 1)))) + 1):
+            cost = omniscope_cost(np.array(curr_njs + [nj]) + 1, pad=True)
+            if cost >= brute_cost:
+                break
+            if len(curr_njs) + 1 == Nv:
+                njs.append(curr_njs + [nj])
+                costs.append(cost)
             else:
-                self._recursive_Pmax(Pmaxes, costs, currPmaxes + [i],
-                                     Pmax_brute, Nv, brute_cost)
+                self._recursive_nj(nj, costs, curr_njs + [nj],
+                                   nj_brute, Nv, brute_cost)
 
-    def get_candidate_pmaxes(self, amin=None, reorder=False):
-        """Get potential Pmax's which are better than brute force.
+    def get_candidate_njs(self, amin=None, reorder=False):
+        """Get potential n_j's which are better than brute force.
 
         Parameters
         ----------
@@ -195,37 +193,37 @@ class array1D():
 
         Returns
         -------
-        Pmaxes : list of lists of ints
-            The list of sets of Pmaxes which have a cost lower than the brute force method (1-level).
+        njs : list of lists of ints
+            The list of sets of njs which have a cost lower than the brute force method (1-level).
         costs : list of floats
             The relative costs associated with each Pmax set.
 
         """
         if amin is None:
             amin = self.bl_min
-        Pmax_brute = int(np.ceil(self.bl_max / amin))
-        brute_cost = omniscope_cost([Pmax_brute], pad=True)
+        nj_brute = int(np.ceil(self.bl_max / amin))
+        brute_cost = omniscope_cost([nj_brute], pad=True)
         # This comes from argument about the padding penalty (see notebook)
-        Nv_max = int(np.floor(np.log2(Pmax_brute + 1) / 2.))
+        Nv_max = int(np.floor(np.log2(nj_brute) / 2.))
 
-        Pmaxes = [[Pmax_brute]]
+        njs = [[nj_brute]]
         costs = [brute_cost]
         for Nv in range(2, Nv_max + 1):
-            currPmaxes = []
-            self._recursive_Pmax(Pmaxes, costs, currPmaxes, Pmax_brute, Nv, brute_cost)
+            curr_njs = []
+            self._recursive_Pmax(njs, costs, curr_njs, nj_brute, Nv, brute_cost)
 
         if reorder:
             inds = np.argsort(costs)
-            Pmaxes = list(np.array(Pmaxes)[inds])
+            njs = list(np.array(njs)[inds])
             costs = list(np.array(costs)[inds])
 
-        return Pmaxes, costs
+        return njs, costs
 
 
 class HierarchicalGrid_1D():
     """Class to contain a definition of a hierarchical grid, in 1D."""
 
-    def __init__(self, basis_vectors, Pmaxes, origin=0.):
+    def __init__(self, basis_vectors, njs, origin=0.):
         """Initialize the class.
 
         Parameters
@@ -233,9 +231,10 @@ class HierarchicalGrid_1D():
         basis_vectors : list of floats
             List of basis vectors (lengths) that define the hierarchical grid
             (a's in Tegmark 2010, eq 3).
-        Pmaxes : list of ints
-            The largest vector coefficient for basis vectors. Because the
-            coefficients start at 0, these are i_max - 1 in Tegmark eq 3.
+        njs : list of ints
+            The number of grid points associated with each basis vector (max i in Tegmark eq 3).
+            This class assumes i ranges from 0 to n_j - 1.
+            For example, Fig 1 of that paper would be [5, 3, 3, 3, 3, 3]
         origin : float, optional
             The origin from which to reference the basis vectors and i's above.
             Default is 0.
@@ -244,14 +243,14 @@ class HierarchicalGrid_1D():
         # TODO: Check inputs
 
         self.basis_vectors = basis_vectors
-        self.Pmaxes = Pmaxes
+        self.njs = njs
         self.origin = origin
         self.shortest_vec = np.min(self.basis_vectors)
 
         self.calc_grid()
 
     def calc_grid(self):
-        """Calculate the grid pixels for the basis vectors, i_maxes, and origin."""
+        """Calculate the grid pixels for the basis vectors, njs, and origin."""
         self.grid = []
         lvl = 0
         self._recursive_grid_level(lvl, self.origin)
@@ -259,8 +258,8 @@ class HierarchicalGrid_1D():
 
     def _recursive_grid_level(self, lvl, loc):
         """Recursively walk through grid levels to add points to self.grid."""
-        for i in range(self.Pmaxes[lvl] + 1):
-            new_loc = loc + i * self.basis_vectors[lvl]
+        for Pij in range(self.njs[lvl]):
+            new_loc = loc + Pij * self.basis_vectors[lvl]
             if lvl == len(self.basis_vectors) - 1:
                 self.grid.append(new_loc)
             else:
@@ -392,7 +391,7 @@ def _rand2physical(params, omax, amin, amax):
     return origin, basis_vecs
 
 
-def func_to_min(params, array, Pmaxes, amin=None, mindist=None, radius=0):
+def func_to_min(params, array, njs, amin=None, mindist=None, radius=0):
     """Given list of Pmaxes and an array, try a bunch of origins and a's.
 
     Parameters
@@ -403,8 +402,8 @@ def func_to_min(params, array, Pmaxes, amin=None, mindist=None, radius=0):
         scipy.optimize.minimize.
     array : array1D
         Object containing the array to grid.
-    Pmaxes : list of ints
-        The largest vector coefficient for basis vectors.
+    njs : list of ints
+        The number of grid points associated with each basis vector.
         Assumed to be in order from smallest basis vector to largest.
     amin : float, optional
         Minimum grid spacing. Defaults to minimum baseline.
@@ -423,11 +422,11 @@ def func_to_min(params, array, Pmaxes, amin=None, mindist=None, radius=0):
     """
     if amin is None:
         amin = array.bl_min
-    amax = array.bl_max / Pmaxes[-1]  # TODO: make smarter
+    amax = array.bl_max / njs[-1]  # TODO: make smarter
     omax = np.min(array.ant_locs) - radius
 
     origin, basis_vecs = _rand2physical(params, omax, amin, amax)
-    this_grid = HierarchicalGrid_1D(basis_vecs, Pmaxes, origin=origin)
+    this_grid = HierarchicalGrid_1D(basis_vecs, njs, origin=origin)
     score = this_grid.grid_vs_array_score(array, mindist=mindist, radius=radius)
 
     return score
@@ -436,7 +435,7 @@ def func_to_min(params, array, Pmaxes, amin=None, mindist=None, radius=0):
 class OptimalGrid():
     """Class for the optimal grid for a given array."""
 
-    def __init__(self, array, Pmaxes, res, amin, mindist, radius, brute_force_cost,
+    def __init__(self, array, njs, res, amin, mindist, radius, brute_force_cost,
                  optimal_cost):
         """Initialize the class.
 
@@ -444,8 +443,8 @@ class OptimalGrid():
         ----------
         array : array1D
             Array object that this grid corresponds to.
-        Pmaxes : list of ints
-            The largest vector coefficient for basis vectors.
+        njs : list of ints
+            The number of grid points associated with each basis vector.
             Assumed to be in order from smallest basis vector to largest.
         res : OptimizeResult
             The result of scipy.optimize.minimize for the lowest cost grid that
@@ -465,10 +464,10 @@ class OptimalGrid():
         self.array = array
         self.res = res
         self.mindist = mindist
-        amax = array.bl_max / Pmaxes[-1]
+        amax = array.bl_max / njs[-1]
         omax = np.min(array.ant_locs) - radius
         origin, basis_vecs = _rand2physical(res.x, omax, amin, amax)
-        self.grid = HierarchicalGrid_1D(basis_vecs, Pmaxes, origin=origin)
+        self.grid = HierarchicalGrid_1D(basis_vecs, njs, origin=origin)
         self.brute_force_cost = brute_force_cost
         self.optimal_cost = optimal_cost
 
@@ -502,22 +501,22 @@ def find_grid(array, amin=None, mindist=None, radius=0, verbose=False):
 
     """
     # Get Pmaxes
-    Pmaxes, costs = array.get_candidate_pmaxes(amin=amin, reorder=True)
+    njs, costs = array.get_candidate_pmaxes(amin=amin, reorder=True)
     if verbose:
-        print('Found ' + str(len(Pmaxes)) + ' candidate Pmax sets.')
+        print('Found ' + str(len(njs)) + ' candidate nj sets.')
 
-    if len(Pmaxes) == 1:
+    if len(njs) == 1:
         # No possible Pmaxes with improved cost. Break.
         return False
 
-    for i, Pmax_curr in enumerate(Pmaxes):
+    for i, njs_curr in enumerate(njs):
         if verbose:
-            print('Trying: ' + str(Pmax_curr))
+            print('Trying: ' + str(njs_curr))
         res = minimize(func_to_min, [0., 0., 0.],
-                       args=(array, Pmax_curr, amin, mindist, radius))
+                       args=(array, njs_curr, amin, mindist, radius))
         if res.fun == 0.:
             # We did it!
-            ogrid = OptimalGrid(array, Pmax_curr, res, amin, mindist, radius,
+            ogrid = OptimalGrid(array, njs_curr, res, amin, mindist, radius,
                                 costs[-1], costs[i])
             return ogrid
 
