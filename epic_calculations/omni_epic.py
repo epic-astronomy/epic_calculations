@@ -178,7 +178,7 @@ class array1D():
                 njs.append(curr_njs + [nj])
                 costs.append(cost)
             else:
-                self._recursive_nj(nj, costs, curr_njs + [nj],
+                self._recursive_nj(njs, costs, curr_njs + [nj],
                                    nj_brute, Nv, brute_cost)
 
     def get_candidate_njs(self, amin=None, reorder=False):
@@ -210,7 +210,7 @@ class array1D():
         costs = [brute_cost]
         for Nv in range(2, Nv_max + 1):
             curr_njs = []
-            self._recursive_Pmax(njs, costs, curr_njs, nj_brute, Nv, brute_cost)
+            self._recursive_nj(njs, costs, curr_njs, nj_brute, Nv, brute_cost)
 
         if reorder:
             inds = np.argsort(costs)
@@ -500,8 +500,8 @@ def find_grid(array, amin=None, mindist=None, radius=0, verbose=False):
         of result. If no grid was successful, returns False.
 
     """
-    # Get Pmaxes
-    njs, costs = array.get_candidate_pmaxes(amin=amin, reorder=True)
+    # Get njs
+    njs, costs = array.get_candidate_njs(amin=amin, reorder=True)
     if verbose:
         print('Found ' + str(len(njs)) + ' candidate nj sets.')
 
