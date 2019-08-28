@@ -3,14 +3,14 @@ import scipy.constants as const
 from scipy.optimize import minimize
 
 
-def omniscope_cost(njs, pad=True, corr_cost=False):
+def omniscope_cost(Pmaxes, pad=True, corr_cost=False):
     """Calculate computational cost for omniscope given the sizes of grid levels.
 
     Parameters
     ----------
-    nfs : list, array of ints
+    Pmaxes : list, array of ints
         The sizes of the hierarchical grid levels. For example, the example given in Fig. 1
-        of Tegmark 2010, njs=[5, 3, 3, 3, 3, 3]
+        of Tegmark 2010, Pmaxes=[5, 3, 3, 3, 3, 3]
     pad : bool, optional
         Whether to pad each grid level. Default is True.
     corr_cost : bool, optional
@@ -23,17 +23,17 @@ def omniscope_cost(njs, pad=True, corr_cost=False):
 
     """
     fft_factor = 5. / 2.
-    njs = np.array(njs)
-    nant = np.prod(njs)
+    Pmaxes = np.array(Pmaxes)
+    nant = np.prod(Pmaxes)
 
     if corr_cost:
-        nant = np.prod(njs)
+        nant = np.prod(Pmaxes)
         cost = nant * (nant - 1) / 2.
     else:
         if pad:
-            cost = fft_factor * 2**njs.size * nant * (njs.size + np.log2(nant))
+            cost = fft_factor * 2**Pmaxes.size * nant * (Pmaxes.size + np.log2(nant))
         else:
-            cost = fft_factor * nant * np.log2(njs)
+            cost = fft_factor * nant * np.log2(Pmaxes)
     return cost
 
 
