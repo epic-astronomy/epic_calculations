@@ -171,7 +171,7 @@ class array1D():
 
     def _recursive_nj(self, njs, costs, curr_njs, nj_brute, Nv, brute_cost):
         for nj in range(2, int(np.ceil(nj_brute / (2**(Nv - 1)))) + 1):
-            cost = omniscope_cost(np.array(curr_njs + [nj]) + 1, pad=True)
+            cost = omniscope_cost(np.array(curr_njs + [nj]), pad=True)
             if cost >= brute_cost:
                 break
             if len(curr_njs) + 1 == Nv:
@@ -201,7 +201,7 @@ class array1D():
         """
         if amin is None:
             amin = self.bl_min
-        nj_brute = int(np.ceil(self.bl_max / amin))
+        nj_brute = int(np.ceil(self.bl_max / amin) + 1)
         brute_cost = omniscope_cost([nj_brute], pad=True)
         # This comes from argument about the padding penalty (see notebook)
         Nv_max = int(np.floor(np.log2(nj_brute) / 2.))
