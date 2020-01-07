@@ -194,7 +194,8 @@ class array1D():
         Returns
         -------
         njs : list of lists of ints
-            The list of sets of njs which have a cost lower than the brute force method (1-level).
+            The list of sets of njs which have a cost lower than the brute force
+            method (1-level).
         costs : list of floats
             The relative costs associated with each Pmax set.
 
@@ -204,7 +205,7 @@ class array1D():
         nj_brute = int(np.ceil(self.bl_max / amin) + 1)
         brute_cost = omniscope_cost([nj_brute], pad=True)
         # This comes from argument about the padding penalty (see notebook)
-        Nv_max = int(np.floor(np.log2(nj_brute) / 2.))
+        Nv_max = int(np.floor((np.log2(nj_brute) + 1) / 2.))
 
         njs = [[nj_brute]]
         costs = [brute_cost]
