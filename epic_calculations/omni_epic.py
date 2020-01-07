@@ -366,7 +366,9 @@ def _rand2physical(params, omax, amin, amax):
     Parameters
     ----------
     params : array of floats
-        Numbers in range [0, 1) representing the origin and basis vectors
+        Numbers in range [0, 1) representing the origin and basis vectors.
+        Length is 1 + Nv - 1 -- one for origin, and one for each vector except
+        amin, which is specified.
     omax : float
         Maximum origin value
     amin : float
@@ -379,14 +381,14 @@ def _rand2physical(params, omax, amin, amax):
     origin : float
         Origin now in physical parameter space.
     basis_vecs : array_like of floats
-        Basis vectors now in physical parameter space.
+        Basis vectors now in physical parameter space. Length Nv.
 
     """
     basis_vecs = np.zeros(len(params) - 1)
     basis_vecs[0] = amin
     for i in range(len(basis_vecs[1:])):
         amax_temp = amax / 2**(len(basis_vecs) - i - 2)
-        basis_vecs[i + 1] = 2 * basis_vecs[i] + params[i + 2] * (amax_temp - 2 * basis_vecs[i])
+        basis_vecs[i + 1] = 2 * basis_vecs[i] + params[i + 1] * (amax_temp - 2 * basis_vecs[i])
     origin = omax - params[0] * basis_vecs[-1]
 
     return origin, basis_vecs
@@ -513,7 +515,7 @@ def find_grid(array, amin=None, mindist=None, radius=0, verbose=False):
     for i, njs_curr in enumerate(njs):
         if verbose:
             print('Trying: ' + str(njs_curr))
-        res = minimize(func_to_min, [0., 0., 0.],
+        res = minimize(func_to_min, np.zeros(len(njs_curr)),
                        args=(array, njs_curr, amin, mindist, radius))
         if res.fun == 0.:
             # We did it!
