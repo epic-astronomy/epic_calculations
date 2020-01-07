@@ -197,7 +197,7 @@ class array1D():
             The list of sets of njs which have a cost lower than the brute force
             method (1-level).
         costs : list of floats
-            The relative costs associated with each Pmax set.
+            The relative costs associated with each nj set.
 
         """
         if amin is None:
@@ -393,7 +393,7 @@ def _rand2physical(params, omax, amin, amax):
 
 
 def func_to_min(params, array, njs, amin=None, mindist=None, radius=0):
-    """Given list of Pmaxes and an array, try a bunch of origins and a's.
+    """Given list of njs and an array, try a bunch of origins and a's.
 
     Parameters
     ----------
@@ -417,7 +417,7 @@ def func_to_min(params, array, njs, amin=None, mindist=None, radius=0):
     Returns
     -------
     score : float
-        The score associated with the grid specified by params and Pmaxes against
+        The score associated with the grid specified by params and njs against
         the array.
 
     """
@@ -507,7 +507,7 @@ def find_grid(array, amin=None, mindist=None, radius=0, verbose=False):
         print('Found ' + str(len(njs)) + ' candidate nj sets.')
 
     if len(njs) == 1:
-        # No possible Pmaxes with improved cost. Break.
+        # No possible njs with improved cost. Break.
         return False
 
     for i, njs_curr in enumerate(njs):
