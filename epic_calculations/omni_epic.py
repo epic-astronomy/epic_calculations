@@ -425,7 +425,7 @@ def func_to_min(params, array, njs, amin=None, mindist=None, radius=0):
     """
     if amin is None:
         amin = array.bl_min
-    amax = array.bl_max / njs[-1]  # TODO: make smarter
+    amax = array.bl_max / (njs[-1] - 1)  # TODO: make smarter
     omax = np.min(array.ant_locs) - radius
 
     origin, basis_vecs = _rand2physical(params, omax, amin, amax)
@@ -467,7 +467,7 @@ class OptimalGrid():
         self.array = array
         self.res = res
         self.mindist = mindist
-        amax = array.bl_max / njs[-1]
+        amax = array.bl_max / (njs[-1] - 1)
         omax = np.min(array.ant_locs) - radius
         origin, basis_vecs = _rand2physical(res.x, omax, amin, amax)
         self.grid = HierarchicalGrid_1D(basis_vecs, njs, origin=origin)
@@ -516,7 +516,8 @@ def find_grid(array, amin=None, mindist=None, radius=0, verbose=False):
         if verbose:
             print('Trying: ' + str(njs_curr))
         res = minimize(func_to_min, np.zeros(len(njs_curr)),
-                       args=(array, njs_curr, amin, mindist, radius))
+                       args=(array, njs_curr, amin, mindist, radius),
+                       bounds=[(0, 1) for i in range(len(njs_curr))])
         if res.fun == 0.:
             # We did it!
             ogrid = OptimalGrid(array, njs_curr, res, amin, mindist, radius,
