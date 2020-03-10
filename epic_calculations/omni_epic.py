@@ -138,13 +138,18 @@ class array1D():
         self.bl_max = self.ant_locs.max() - self.ant_locs.min()
         self.bl_min = np.min(np.abs(np.diff(sorted(self.ant_locs))))
 
-    def psf(self, return_angles=True):
+    def psf(self, return_angles=True, fov=None, res=None):
         """Calculate the point spread function of the array.
 
         Parameters
         ----------
         return_angles : bool, optional
             Whether to also return the angle axis. Default is true.
+        fov : float, optional
+            Field of view to compute the PSF for, in radian.
+            Default is to use 1 / minimum baseline.
+        res : float, optional
+            Resolution in radian. Default is 1 / (2 * max baseline).
 
         Returns
         -------
@@ -156,8 +161,14 @@ class array1D():
         """
         bl_max = self.ant_locs.max() - self.ant_locs.min()
         bl_min = np.min(np.abs(np.diff(sorted(self.ant_locs))))
-        theta_min = 1. / (2 * self.bl_max)
-        theta_max = 1. / self.bl_min
+        if res is None:
+            theta_min = 1. / (2 * self.bl_max)
+        else:
+            theta_min = res
+        if fov is None:
+            theta_max = 1. / self.bl_min
+        else:
+            theta_max = fov
         angles = np.arange(-theta_max, theta_max, theta_min)
 
         psf = np.zeros(len(angles))
@@ -169,19 +180,24 @@ class array1D():
         else:
             return psf
 
-    def _recursive_nj(self, njs, costs, curr_njs, nj_brute, Nv, brute_cost):
+    def _recursive_nj(self, njs, costs, curr_njs, nj_brute, Nv, brute_cost,
+                      force_ng_gt_na=True):
         for nj in range(2, int(np.ceil(nj_brute / (2**(Nv - 1)))) + 1):
             cost = omniscope_cost(np.array(curr_njs + [nj]), pad=True)
             if cost >= brute_cost:
                 break
             if len(curr_njs) + 1 == Nv:
-                njs.append(curr_njs + [nj])
-                costs.append(cost)
+                append_njs = ((np.prod(curr_njs + [nj]) >= len(self.ant_locs))
+                              or not force_ng_gt_na)
+                if append_njs:
+                    njs.append(curr_njs + [nj])
+                    costs.append(cost)
             else:
                 self._recursive_nj(njs, costs, curr_njs + [nj],
-                                   nj_brute, Nv, brute_cost)
+                                   nj_brute, Nv, brute_cost,
+                                   force_ng_gt_na=force_ng_gt_na)
 
-    def get_candidate_njs(self, amin=None, reorder=False):
+    def get_candidate_njs(self, amin=None, reorder=False, force_ng_gt_na=True):
         """Get potential n_j's which are better than brute force.
 
         Parameters
@@ -189,7 +205,10 @@ class array1D():
         amin : float, optional
             minimum grid spacing. Default is the minimum baseline length.
         reorder : bool, optional
-            Reorder the outputs by cost. Default is False
+            Reorder the outputs by cost. Default is False.
+        force_ng_gt_na : bool, optional
+            Force the number of grid points to be greater than the number
+            of antennas. Default is True.
 
         Returns
         -------
@@ -211,7 +230,8 @@ class array1D():
         costs = [brute_cost]
         for Nv in range(2, Nv_max + 1):
             curr_njs = []
-            self._recursive_nj(njs, costs, curr_njs, nj_brute, Nv, brute_cost)
+            self._recursive_nj(njs, costs, curr_njs, nj_brute, Nv,
+                               brute_cost, force_ng_gt_na=force_ng_gt_na)
 
         if reorder:
             inds = np.argsort(costs)
