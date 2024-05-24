@@ -8,13 +8,13 @@ import time
 #matching a criteria defined in the variables beneath this
 #and then print out the results
 dec = 34
-decRange = 2
+decRange = 4
 
 ra = 180
-raRange = 180
+raRange = 360
 
-dm = 500
-dmRange = 500
+dm = 1000
+dmRange = 2000
 
 timeWindow = [int(parser.parse("2024-02-01").timestamp()),int(parser.parse("2024-05-24").timestamp())]
 
@@ -57,15 +57,15 @@ with open("chimefrb_voevent_data.json", "r") as read_file:
             
 def validate(f):
     
-    if f.dec < dec-decRange or f.dec > dec+decRange:
+    if f.dec < dec-decRange/2 or f.dec > dec+decRange/2:
         print("out of DEC range: " + str(f.dec))
         return False
 
-    if f.ra < ra-raRange or f.ra > ra+raRange:
+    if f.ra < ra-raRange/2 or f.ra > ra+raRange/2:
         print("out of RA range: " + str(f.ra))
         return False
     
-    if f.dm < dm-dmRange or f.dm > dm+dmRange:
+    if f.dm < dm-dmRange/2 or f.dm > dm+dmRange/2:
         print("out of DM range: " + str(f.dm))
         return False
     
