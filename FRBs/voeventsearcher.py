@@ -7,16 +7,17 @@ import time
 #search through the chime VOEvent database .json file for FRBs
 #matching a criteria defined in the variables beneath this
 #and then print out the results
-dec = 34
-decRange = 4
+dec = 15.85
+decRange = 10
 
-ra = 180
-raRange = 360
+ra = 174
+raRange = 80
 
 dm = 1000
 dmRange = 2000
 
-timeWindow = [int(parser.parse("2024-02-01").timestamp()),int(parser.parse("2024-05-24").timestamp())]
+timeWindow = [int(parser.parse("2024-01-09").timestamp()),int(parser.parse("2024-05-30").timestamp())]
+
 
 class FRB:
     def __init__(self,event_id,alert_type,detected_time,dm,snr,ra,dec,localization_error):
@@ -32,7 +33,6 @@ class FRB:
         self.ra = float(ra)
         self.dec = float(dec)
         self.localization_error = float(localization_error)
-    
 frbs = []
 
 #load data
