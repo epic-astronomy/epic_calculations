@@ -19,7 +19,7 @@ count = 1
 frbs = []
 totalBursts = {}
 last2Months = {}
-with open("repeaters.json", "r") as read_file:
+with open("C:/Users/eg6735kv/OneDrive - MNSCU/Desktop/summer2024research/FRBs/repeaters.json", "r") as read_file:
     data = json.load(read_file)
     for frbName, frb in data.items():
         count+=1
